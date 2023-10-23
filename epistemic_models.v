@@ -4,6 +4,17 @@
 
 Require Import Sets.Ensembles.
 
+Section Preliminaries.
+
+(* ∩_{x ∈ P} S(x) *)
+Inductive IntersectionForall {X Y : Type}
+  (P : Ensemble X) (S : X -> Ensemble Y) : Ensemble Y :=
+| IntersectionForall_intro :
+    forall y, (forall x, In _ P x -> In _ (S x) y) ->
+      In _ (IntersectionForall P S) y.
+
+End Preliminaries.
+
 Section KripkeFrames.
 
 Class Frame (P : Set) := mkFrame { (* P : players *)
@@ -11,32 +22,34 @@ Class Frame (P : Set) := mkFrame { (* P : players *)
   R : P -> W -> Ensemble W;  (* relation *)
 }.
 
-Definition serial {P : Set} (K : Frame P) : Prop :=
-  forall (p : P) (w : W), R p w <> Empty_set _.
+Variable P : Set.  (* players *)
+Set Implicit Arguments.
 
-Definition transitive {P : Set} (K : Frame P) : Prop :=
+Definition serial (K : Frame P) : Prop :=
+  forall (p : P) (w : W), exists w', In _ (R p w) w'.
+
+Definition transitive (K : Frame P) : Prop :=
   forall (p : P) (w w' : W),
     In _ (R p w) w' -> Included _ (R p w') (R p w).
 
-Definition euclidean {P : Set} (K : Frame P) : Prop :=
+Definition euclidean (K : Frame P) : Prop :=
   forall (p : P) (w w' : W),
     In _ (R p w) w' -> Included _ (R p w) (R p w').
 
-Definition reflexive {P : Set} (K : Frame P) : Prop :=
+Definition reflexive (K : Frame P) : Prop :=
   forall (p : P) (w : W),
     In _ (R p w) w.
 
-Definition symmetric {P : Set} (K : Frame P) : Prop :=
+Definition symmetric (K : Frame P) : Prop :=
   forall (p : P) (w w' : W),
     In _ (R p w) w' -> In _ (R p w') w.
 
-Definition isKD45 {P : Set} (K : Frame P) : Prop :=
+Definition isKD45 (K : Frame P) : Prop :=
   serial K /\ transitive K /\ euclidean K.
 
-Definition isKT5 {P : Set} (K : Frame P) : Prop :=
+Definition isKT5 (K : Frame P) : Prop :=
   reflexive K /\ euclidean K.
 
-Variable P : Set.  (* players *)
 Variable K : Frame P.
 
 Lemma KT5_is_symmetric : isKT5 K -> symmetric K.
@@ -77,10 +90,9 @@ Proof.
   destruct Hk as [Href _].
   unfold reflexive in Href.
   unfold serial.
-  intros p w Heq.
-  specialize (Href p w).
-  rewrite Heq in Href.
-  inversion Href.
+  intros p w.
+  exists w.
+  apply Href.
 Qed.
 
 Lemma KT5_is_a_KD45 : isKT5 K -> isKD45 K.
@@ -99,7 +111,6 @@ Section BeliefOperators.
 
 Variable P : Set.  (* players *)
 Variable K : Frame P.  (* a Kripke frame *)
-Hypothesis K_is_KD45 : isKD45 K.
 
 Inductive Rplus (H : Ensemble P) : W -> Ensemble W :=
 | Rplus_base : forall (p : P) (w : W),
@@ -112,19 +123,22 @@ Inductive Rplus (H : Ensemble P) : W -> Ensemble W :=
 .
 
 Inductive B (p : P) (E : Ensemble W) : Ensemble W :=
-| Bintro : forall w : W,
+| B_intro : forall w : W,
     Included _ (R p w) E -> In _ (B p E) w
 .
 
 Inductive CB (H : Ensemble P) (E : Ensemble W) : Ensemble W :=
-| CBintro : forall w : W,
+| CB_intro : forall w : W,
     Included _ (Rplus H w) E -> In _ (CB H E) w
 .
 
 Inductive D (H : Ensemble P) (E : Ensemble W) : Ensemble W :=
-| Dintro : forall w : W,
-    (forall p : P, In _ H p -> Included _ (R p w) E)
+| D_intro : forall w : W,
+    Included _
+      (IntersectionForall H (fun p => R p w)) E
     -> In _ (D H E) w
 .
+
+Hypothesis K_is_KD45 : isKD45 K.
 
 End BeliefOperators.
