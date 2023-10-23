@@ -292,12 +292,17 @@ Variable win : StrProf -> P -> Prop.
 Variable K : Frame P.
 Variable sigma : StrProfMap K.
 
+Definition keepWinning (p : P) (w' : W) (sp' : strategy) : Prop :=
+  win (sigma w') p -> win (update (sigma w') p sp') p.
+Definition profitableDev (p : P) (w' : W) (sp' : strategy) : Prop :=
+  ~ win (sigma w') p /\ win (update (sigma w') p sp') p.
+
 Definition isRational (p : P) (w : W) : Prop :=
   forall sp' : strategy,
   (exists w' : W, In _ (R p w) w' /\
-    ~ (win (sigma w') p -> win (update (sigma w') p sp') p)) \/
+    ~ keepWinning p w' sp') \/
   (forall w' : W, In _ (R p w) w' ->
-    ~ (~ win (sigma w') p /\ win (update (sigma w') p sp') p)).
+    ~ profitableDev p w' sp').
 
 Inductive RAT (p : P) : Ensemble W :=
 | RAT_intro :
