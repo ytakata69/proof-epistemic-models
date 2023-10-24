@@ -112,6 +112,28 @@ Proof.
   - now destruct Hk as [_ Heuc].
 Qed.
 
+Hypothesis K_is_KD45 : isKD45 K.
+
+Lemma same_R_p :
+  forall (p : P) (w w' : W),
+  In _ (R p w) w' -> R p w = R p w'.
+Proof.
+  destruct K_is_KD45 as [_ [Htra Heuc]].
+  unfold transitive in Htra.
+  unfold euclidean in Heuc.
+
+  intros p w w' Hin.
+  apply Extensionality_Ensembles.
+  unfold Same_set.
+  split;
+  unfold Included;
+  intros x Hx.
+  - (* to show R p w ⊆ R p w' *)
+  now apply Heuc with (w:=w).
+  - (* to show R p w' ⊆ R p w *)
+  now apply Htra with (w':=w').
+Qed.
+
 End KripkeFrames.
 
 Section BeliefOperators.
@@ -288,21 +310,30 @@ Definition isEpistemicModel (K : Frame P) (sigma : StrProfMap K) : Prop :=
 Definition update (s : StrProf) (p : P) (sp : strategy) : StrProf :=
   fun q => if p =? q then sp else s q.
 
+(*
 Variable win : StrProf -> P -> Prop.
+*)
 Variable K : Frame P.
 Variable sigma : StrProfMap K.
 
+(*
 Definition keepWinning (p : P) (w' : W) (sp' : strategy) : Prop :=
   win (sigma w') p -> win (update (sigma w') p sp') p.
 Definition profitableDev (p : P) (w' : W) (sp' : strategy) : Prop :=
   ~ win (sigma w') p /\ win (update (sigma w') p sp') p.
+*)
+
+Variable somePred : Ensemble W -> Prop.
 
 Definition isRational (p : P) (w : W) : Prop :=
+  somePred (R p w).
+  (*
   forall sp' : strategy,
   (exists w' : W, In _ (R p w) w' /\
     ~ keepWinning p w' sp') \/
   (forall w' : W, In _ (R p w) w' ->
     ~ profitableDev p w' sp').
+  *)
 
 Inductive RAT (p : P) : Ensemble W :=
 | RAT_intro :
@@ -323,12 +354,19 @@ Proof.
   unfold Included in Heuc.
 
   intros p w1 w2 H12.
+  apply (same_R_p K_is_KD45) in H12.
+
   split; intros H1;
   apply RAT_intro;
   inversion H1 as [x Hrat EQx];
   clear x EQx H1;
   unfold isRational;
-  unfold isRational in Hrat;
+  unfold isRational in Hrat
+  .
+  - now rewrite <- H12.
+  - now rewrite H12.
+
+(*
   intros sp';
   specialize (Hrat sp');
   destruct Hrat as [Hrat | Hrat];
@@ -355,6 +393,8 @@ Proof.
   intros w' Hi.
   apply Hrat.
   now apply Heuc with (w:=w1).
+*)
+
 Qed.
 
 Theorem RAT_is_fixpoint_of_B :
