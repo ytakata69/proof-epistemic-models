@@ -351,9 +351,23 @@ Definition StrProf := P -> strategy.
 Definition StrProfMap (K : Frame P) := W -> StrProf.
 
 Definition isEpistemicModel (K : Frame P) (sigma : StrProfMap K) : Prop :=
+  forall (p : P) (w w' : W),
+    In _ (R p w) w' -> sigma w p = sigma w' p.
+
+Lemma weak_definition_of_EM :
+  forall (K : Frame P) (sigma : StrProfMap K),
+    isKD45 K ->
+    isEpistemicModel sigma ->
   forall (p : P) (w w1 w2 : W),
     In _ (R p w) w1 -> In _ (R p w) w2 ->
     sigma w1 p = sigma w2 p.
+Proof.
+  intros K sigma K_is_KD45 HEM
+    p w w1 w2 H1 H2.
+  apply HEM.
+  destruct K_is_KD45 as [_ [_ Heuc]].
+  now apply Heuc with (w:=w).
+Qed.
 
 Definition update (s : StrProf) (p : P) (sp : strategy) : StrProf :=
   fun q => if p =? q then sp else s q.
