@@ -240,7 +240,7 @@ Proof.
   now rewrite Rplus_singleton_equals_R_p.
 Qed.
 
-Lemma B_p_is_idempotent :
+Lemma B_p_positive_introspection :
   forall (p : P) (E : Ensemble W),
   B p E = B p (B p E).
 Proof.
@@ -282,6 +282,52 @@ Proof.
   now apply Heuc.
 Qed.
 
+Lemma B_p_negative_introspection :
+  forall (p : P) (E : Ensemble W),
+  Complement _ (B p E)
+    = B p (Complement _ (B p E)).
+Proof.
+  destruct K_is_KD45 as [Hser [Htra Heuc]].
+
+  intros p E.
+  apply Extensionality_Ensembles.
+  unfold Same_set.
+  split;
+  unfold Included, Complement, In;
+  intros x Hx.
+  - (* to show ⊆ *)
+  apply B_intro.
+  unfold Included, In.
+  intros y Hxy HBy.
+  inversion HBy as [y' Hy EQy'];
+  clear y' EQy' HBy.
+  apply Hx.
+  apply B_intro.
+  unfold Included.
+  intros z Hz.
+  apply Hy.
+  apply Heuc with (w:=x);
+  [apply Hxy | apply Hz].
+
+  - (* to show ⊇ *)
+  destruct (Hser p x) as [x' Hxx'].
+
+  inversion Hx as [w' HnB EQw'];
+  clear w' EQw' Hx.
+  unfold Included in HnB.
+  specialize (HnB _ Hxx').
+  unfold In in HnB.
+  intros HBx;
+  apply HnB.
+  apply B_intro.
+  unfold Included.
+  intros y Hy.
+  inversion HBx as [x'' HxE EQx''];
+  clear x'' EQx'' HBx.
+  apply HxE.
+  now apply Htra with (w':=x').
+Qed.
+
 Lemma B_p_equals_pow_B_p :
   forall (p : P) (E : Ensemble W) (n : nat),
   n > 0 -> B p E = fpow (B p) n E.
@@ -299,7 +345,7 @@ Proof.
   unfold fpow.
   unfold fpow in IHm.
   rewrite <- IHm.
-  apply B_p_is_idempotent.
+  apply B_p_positive_introspection.
 Qed.
 
 Theorem PredicateOnRp_is_fixpoint_of_B :
