@@ -4,6 +4,7 @@
 
 Require Import Arith.
 Require Import Sets.Ensembles.
+Require Import trans_closures.
 
 Section Preliminaries.
 
@@ -160,15 +161,123 @@ Section BeliefOperators.
 Variable P : Set.  (* players *)
 Variable K : Frame P.  (* a Kripke frame *)
 
+Inductive Rh (H : Ensemble P) : W -> Ensemble W :=
+| Rh_intro : forall (p : P) (w : W),
+    In _ H p -> Included _ (R p w) (Rh H w)
+.
+Inductive Rplus (H : Ensemble P) : W -> Ensemble W :=
+| Rplus_intro : forall (w : W),
+    Included _ (tcInitLast _ (Rh H) w) (Rplus H w)
+.
+
+Lemma Rplus_base :
+  forall (H : Ensemble P) (p : P) (w : W),
+    In _ H p ->
+    Included _ (R p w) (Rplus H w).
+Proof.
+  intros H p w Hp x Hx.
+  assert (H'x : In _ (tcInitLast _ (Rh H) w) x).
+  { apply tc_il_base. generalize dependent x. now apply Rh_intro. }
+  clear Hx.
+  generalize dependent x.
+  now apply Rplus_intro.
+Qed.
+
+Lemma Rplus_trans :
+  forall (H : Ensemble P) (p : P) (w1 w2 w3 : W),
+    In _ H p ->
+    In _ (Rplus H w1) w2 -> In _ (R p w2) w3
+    -> In _ (Rplus H w1) w3.
+Proof.
+  intros H p w1 w2 w3 Hp H12 H23.
+  assert (H13 : In _ (tcInitLast _ (Rh H) w1) w3).
+  {
+    inversion H12 as [w x H'12 EQw EQx];
+    clear w EQw x EQx.
+    apply tc_il_trans with (b:=w2); [assumption |].
+    generalize dependent w3.
+    now apply Rh_intro.
+  }
+  clear H23.
+  generalize dependent w3.
+  apply Rplus_intro.
+Qed.
+
+(*
 Inductive Rplus (H : Ensemble P) : W -> Ensemble W :=
 | Rplus_base : forall (p : P) (w : W),
     In _ H p ->
     Included _ (R p w) (Rplus H w)
 | Rplus_trans : forall (p : P) (w1 w2 w3 : W),
     In _ H p ->
-    In _ (R p w1) w2 -> In _ (Rplus H w2) w3
+    In _ (Rplus H w1) w2 -> In _ (R p w2) w3
     -> In _ (Rplus H w1) w3
 .
+*)
+
+(* another definition *)
+(*
+Inductive Rplus' (H : Ensemble P) : W -> Ensemble W :=
+| Rplus'_base : forall (p : P) (w : W),
+    In _ H p ->
+    Included _ (R p w) (Rplus' H w)
+| Rplus'_trans : forall (p : P) ( w1 w2 w3 : W),
+    In _ H p ->
+    In _ (R p w1) w2 -> In _ (Rplus' H w2) w3
+    -> In _ (Rplus' H w1) w3
+.
+*)
+
+(*
+Lemma Rplus_equals_Rplus' :
+  forall H w, Rplus H w = Rplus' H w.
+Proof.
+  intros H w.
+  apply Extensionality_Ensembles.
+  unfold Same_set.
+  split;
+  intros x Hx.
+  - (* to show ⊆ *)
+  (*
+  inversion Hx as [p w' Hp x' Hwx EQw' EQx'
+    | p w' w2 x' Hp Hw2 Hwx EQw' EQx'];
+  clear w' EQw' x' EQx' Hx.
+  *)
+  induction Hx as [p w Hp x Hwx
+    | p w w2 x Hp Hw2 IH Hwx].
+  + (* when Rplus_base *)
+  generalize dependent Hwx.
+  now apply Rplus'_base.
+  + (* when Rplus_trans *)
+  generalize dependent w2.
+  induction IH as [q w' Hq x' Hw'x'
+    | q w' w2' x' Hq Hw'w2' Hw2'x' IH].
+  *
+  apply Rplus'_trans with (p:=q) (w2:=x');
+  try assumption.
+  generalize dependent Hwx.
+  now apply Rplus'_base.
+  *
+  apply IHHw2.
+
+
+  intros H p w1 w2 w3 Hp H12 H23.
+  generalize dependent w3.
+  induction H12 as [q w1 Hq w2 H12
+    |q w1 w2 w3 Hq H12 H23 IH].
+  - (* base case *)
+  intros w3 H23.
+  apply Rplus_trans with (p:=q) (w2:=w2);
+  try assumption.
+  generalize dependent w3.
+  now apply Rplus_base.
+  - (* inductive case *)
+  intros w4 H34.
+  apply Rplus_trans with (p:=q) (w2:=w2);
+  try assumption.
+  now apply IH.
+Qed.
+*)
 
 Inductive B (p : P) (E : Ensemble W) : Ensemble W :=
 | B_intro : forall w : W,
@@ -200,22 +309,29 @@ Proof.
   unfold Included;
   intros x Hx.
   - (* to show ⊆ *)
-  induction Hx as [p' w' Hpp' x Hx
-    | p' w' x y Hpp' Hx Hxy IH];
+  inversion Hx as [w' x' H'x EQw' EQx'];
+  clear w' EQw' x' EQx' Hx.
+  induction H'x as [w x Hx
+    | w x y HRPx IH Hx];
+  inversion Hx as [p' w' Hpp' x' H'x EQw' EQx'];
+  clear w' EQw' x' EQx';
   inversion Hpp' as [EQp];
-  rewrite <- EQp in Hx;
+  rewrite <- EQp in H'x;
   rewrite <- EQp;
-  clear p' EQp Hpp'.
-  + (* when Rplus_base *)
-  apply Hx.
-  + (* when Rplus_trans *)
+  clear p' Hpp' EQp.
+  + (* when tc_il_base *)
+  apply H'x.
+  + (* when tc_il_trans *)
   destruct K_is_KD45 as [_ [Htra _]].
   unfold transitive in Htra.
   now apply Htra with (w':=x).
+
   - (* to show ⊇ *)
+  assert (H'x : In _ (tcInitLast _ (Rh (Singleton _ p)) w) x).
+  { apply tc_il_base. generalize dependent x. apply Rh_intro. apply In_singleton. }
+  clear Hx.
   generalize dependent x.
-  apply Rplus_base.
-  apply In_singleton.
+  apply Rplus_intro.
 Qed.
 
 Lemma CB_p_equals_B_p :
@@ -384,6 +500,170 @@ Proof.
   [| apply K_is_KD45].
 
   now apply (Hpred _ _ Hw').
+Qed.
+
+Definition Bh (H : Ensemble P) (E : Ensemble W) : Ensemble W :=
+  IntersectionForall H (fun p => B p E).
+
+Definition posnat (n : nat) : Prop := n > 0.
+
+Lemma CB_H_equals_CB_H_pow_Bh_H :
+  forall H E n,
+  CB H E = CB H (fpow (Bh H) n E).
+Proof.
+  intros H E n.
+  apply Extensionality_Ensembles.
+  unfold Same_set.
+  split.
+
+  - (* to show ⊆ *)
+  induction n as [| n IHn].
+  + (* when n = 0 *)
+  now unfold fpow.
+
+  + (* when n > 0 *)
+  intros x Hx.
+  apply CB_intro.
+  intros y Hxy.
+  apply IHn in Hx as H'x.
+  inversion H'x as [x' H''x EQx'];
+  clear x' EQx' H'x.
+
+  unfold fpow;
+  fold (@fpow (Ensemble W)).
+  apply IntersectionForall_intro.
+  intros p Hp.
+  apply B_intro.
+  intros z Hyz.
+
+  apply H''x.
+  now apply Rplus_trans with (p:=p) (w2:=y).
+
+  - (* to show ⊇ *)
+  induction n as [| n IHn].
+  + (* when n = 0 *)
+  now unfold fpow.
+
+  + (* when n > 0 *)
+  intros x Hx.
+  apply IHn.
+  apply CB_intro.
+  intros y Hxy.
+
+  inversion Hx as [x' H'x EQx'];
+  clear x' EQx' Hx.
+  apply H'x in Hxy as H'xy.
+  unfold fpow in H'xy;
+  fold (@fpow (Ensemble W)) in H'xy.
+  inversion H'xy as [x' H''xy EQx'];
+  clear x' EQx' H'xy.
+
+  inversion Hxy as [x' y' H'xy EQx' EQy'];
+  clear x' EQx' y' EQy' Hxy.
+
+  inversion H'xy as [x' y' HRh EQx' EQy'
+    | x' w2 y' HRx2 HRh EQx' EQy'];
+  clear x' EQx' y' EQy';
+  inversion HRh as [p x' Hp y' HRxy EQx' EQy'];
+  clear x' EQx' y' EQy' HRh;
+  specialize (H''xy p Hp);
+  inversion H''xy as [x' Hy EQx'];
+  clear x' EQx';
+  apply Hy;
+  apply same_R_p in HRxy as EQRp;
+  [| assumption | | assumption];
+  now rewrite <- EQRp.
+Qed.
+
+Lemma CB_equals_intersection_of_Bh :
+  forall H E,
+  CB H E = IntersectionForall posnat
+             (fun n => fpow (Bh H) n E).
+Proof.
+  intros H E.
+  apply Extensionality_Ensembles.
+  unfold Same_set.
+  split;
+  unfold Included;
+  intros x Hx.
+  - (* to show ⊆ *)
+  apply IntersectionForall_intro.
+  intros n Hn.
+  unfold posnat, In in Hn.
+  destruct n as [| m];
+  [inversion Hn | clear Hn].
+  induction m as [| m IHm].
+  + (* when n = 1 *)
+  unfold fpow.
+  apply IntersectionForall_intro.
+  intros p Hp.
+  apply B_intro.
+  intros y Hxy.
+  inversion Hx as [w' HRPx EQw'];
+  clear w' EQw' Hx.
+  apply HRPx.
+  generalize dependent y.
+  now apply Rplus_base.
+  + (* when n > 1 *)
+  unfold fpow.
+  unfold fpow in IHm.
+  fold (@fpow (Ensemble W)).
+  fold (@fpow (Ensemble W)) in IHm.
+
+  rewrite CB_H_equals_CB_H_pow_Bh_H with (n:=S m) in Hx.
+  inversion Hx as [w' HRPx EQw'];
+  clear w' EQw' Hx.
+  unfold fpow in HRPx;
+  fold (@fpow (Ensemble W)) in HRPx.
+
+  apply IntersectionForall_intro.
+  intros p Hp.
+  apply B_intro.
+  intros y Hxy.
+  apply HRPx.
+  generalize dependent y.
+  now apply Rplus_base.
+
+  - (* to show ⊇ *)
+  assert (Hpos : forall n, In _ posnat (S n)).
+  { unfold posnat, In; apply Nat.lt_0_succ. }
+
+  apply CB_intro.
+  unfold Included.
+  intros y Hy.
+  inversion Hy as [x' y' H'y EQx' EQy'];
+  clear x' EQx' y' EQy' Hy.
+  rewrite <- tcHeadTail_equals_tcInitLast in H'y.
+  induction H'y as [x y Hxy
+    | x y z Hxy Hyz IH];
+  inversion Hxy as [p x' Hp y' H'xy EQx' EQy'];
+  clear x' EQx' y' EQy' Hxy.
+
+  + (* when y ∈ Rh H x *)
+  inversion Hx as [x' H'x EQx'];
+  clear x' EQx' Hx.
+  specialize (H'x 1 (Hpos 0)).
+  inversion H'x as [x' Hx EQx'];
+  clear x' EQx' H'x.
+
+  specialize (Hx p Hp).
+  inversion Hx as [x' H'x EQx'].
+  now apply H'x.
+
+  + (* when y ∈ Rh H x /\ z ∈ Rplus H y *)
+  apply IH; clear IH.
+  apply IntersectionForall_intro.
+  intros n Hn.
+
+  inversion Hx as [x' H'x EQx'];
+  clear x' EQx' Hx.
+  specialize (H'x (S n) (Hpos n)).
+  inversion H'x as [x' Hx EQx'];
+  clear x' EQx' H'x.
+
+  specialize (Hx p Hp).
+  inversion Hx as [x' H'x EQx'].
+  now apply H'x.
 Qed.
 
 End BeliefOperators.
